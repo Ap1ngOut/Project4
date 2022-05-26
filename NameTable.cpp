@@ -1,6 +1,8 @@
 #include "NameTable.h"
 #include <string>
+#include <iostream>
 #include <vector>
+#include <list>
 #include <functional>
 using namespace std;
 
@@ -16,7 +18,7 @@ public:
     bool exitScope();
     bool declare(const string& id, int lineNum);
     int find(const string& id) const;
-    unsigned int hashString(const string& id) const;
+    int hashString(const string& id) const;
     void reHash();
     bool addToHash(const string& id, int lineNum, int scopeID);
 private:
@@ -37,11 +39,11 @@ private:
     };
 
     unsigned int hashSize, items, scope;
-    vector<vector<Data*>*> *hashTable;
+    vector<list<Data*>*> *hashTable;
 };
 
 NameTableImpl::NameTableImpl() : hashSize(100), items(0), scope(0)  {
-    hashTable = new vector<vector<Data*>*>;
+    hashTable = new vector<list<Data*>*>;
     for (int i = 0; i < hashSize; i++)
         hashTable->emplace_back(nullptr);
 }
@@ -66,7 +68,7 @@ bool NameTableImpl::addToHash(const string &id, const int lineNum, const int sco
         }
         (*hashTable)[hashID]->emplace_back(new Data(id,lineNum,scopeID));
     } else {
-        (*hashTable)[hashID] = new vector<Data*>;
+        (*hashTable)[hashID] = new list<Data*>;
         (*hashTable)[hashID]->emplace_back(new Data(id,lineNum,scopeID));
     }
     items++;
@@ -76,8 +78,8 @@ bool NameTableImpl::addToHash(const string &id, const int lineNum, const int sco
     return true;
 }
 
-unsigned int NameTableImpl::hashString(const string &id) const {
-    return std::hash<string>() (id) % hashSize;
+int NameTableImpl::hashString(const string &id) const {
+    return (int) (std::hash<string>() (id) % hashSize);
 }
 
 void NameTableImpl::reHash() {
@@ -88,7 +90,7 @@ void NameTableImpl::reHash() {
     else
         hashSize *= 2;
 
-    auto *newHashTable = new vector<vector<Data*>*>;
+    auto *newHashTable = new vector<list<Data*>*>;
     for (int i = 0; i < hashSize; i++) {
         newHashTable->emplace_back(nullptr);
     }
@@ -100,8 +102,8 @@ void NameTableImpl::reHash() {
                 if((*newHashTable)[hashID] != nullptr) {
                     (*newHashTable)[hashID]->emplace_back(j);
                 } else {
-                    (*hashTable)[hashID] = new vector<Data*>;
-                    (*hashTable)[hashID]->emplace_back(j);
+                    (*newHashTable)[hashID] = new list<Data*>;
+                    (*newHashTable)[hashID]->emplace_back(j);
                 }
             }
             delete i;
@@ -122,13 +124,14 @@ bool NameTableImpl::exitScope()
         return false;
     //Get rid of every variable with scope_current
     for (auto i : *hashTable)
-        if (i != nullptr) {
-            for(int j = 0; j < i->size(); j++) {
-                if((*i)[j]->scopeID == scope) {
-                    auto toDel = (*i)[j];
-                    (*i).erase(i->begin() + j);
-                    delete toDel;
+        if (i != nullptr && !i->empty()) {
+            for (auto j = (*i).begin(); j != (*i).end();) {
+                if ((*j)->scopeID == scope)
+                {
+                    delete *j;
+                    j = i->erase(j);
                 }
+                else ++j;
             }
             if(i->empty()) {
                 delete i;
@@ -148,12 +151,13 @@ int NameTableImpl::find(const string& id) const
 {
     int found = -1;
     int hashID = (int) hashString(id);
-    auto i = (*hashTable)[hashID];
-    if (i == nullptr)
+    auto i = hashTable->at(hashID);
+    if (i == nullptr || i->empty())
         return found;
-    for(int j = (int) i->size() - 1; j >= 0; j--) {
-        if(i->at(j)->ID == id) {
-            found = i->at(j)->line;
+    for(auto j = i->rbegin(); j != i->rend(); j++) {
+        if((*j)->ID == id) {
+            found = (*j)->line;
+            break;
         }
     }
     return found;
