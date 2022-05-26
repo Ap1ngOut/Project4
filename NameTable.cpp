@@ -6,6 +6,7 @@ using namespace std;
 
 // This class does the real work of the implementation.
 
+
 class NameTableImpl
 {
 public:
@@ -15,20 +16,34 @@ public:
     bool exitScope();
     bool declare(const string& id, int lineNum);
     int find(const string& id) const;
-    unsigned int hashString(const string& id);
+    unsigned int hashString(const string& id) const;
     void reHash();
+    bool addToHash(const string& id, int lineNum, int scopeID);
 private:
     struct Data {
-        unsigned int line, scopeID;
+        Data(const string& id, const int lineNum, const int scopeid) : line(lineNum), scopeID(scopeid), ID(id) {
+
+        }
+        int line, scopeID;
         string ID;
+        bool operator==(const Data& rhs) const
+        {
+            return ID == rhs.ID && scopeID == rhs.scopeID;
+        }
+        bool operator!=(const Data& rhs) const
+        {
+            return !(ID == rhs.ID && scopeID == rhs.scopeID);
+        }
     };
+
     unsigned int hashSize, items, scope;
     vector<vector<Data*>*> *hashTable;
 };
 
 NameTableImpl::NameTableImpl() : hashSize(100), items(0), scope(0)  {
+    hashTable = new vector<vector<Data*>*>;
     for (int i = 0; i < hashSize; i++)
-        (*hashTable)[i] = nullptr;
+        hashTable->emplace_back(nullptr);
 }
 
 NameTableImpl::~NameTableImpl() {
@@ -40,7 +55,27 @@ NameTableImpl::~NameTableImpl() {
     delete hashTable;
 }
 
-unsigned int NameTableImpl::hashString(const string &id) {
+bool NameTableImpl::addToHash(const string &id, const int lineNum, const int scopeID) {
+    int hashID = (int) hashString(id);
+    if((*hashTable)[hashID] != nullptr) {
+        //Check if identical variable has been created in this scope
+        for (auto i : *(*hashTable)[hashID]) {
+            if(*i == Data(id, lineNum, scopeID))
+                return false;
+        }
+        (*hashTable)[hashID]->emplace_back(new Data(id,lineNum,scopeID));
+    } else {
+        (*hashTable)[hashID] = new vector<Data*>;
+        (*hashTable)[hashID]->emplace_back(new Data(id,lineNum,scopeID));
+    }
+    items++;
+    if ((int) items / hashSize > 5) {
+        reHash();
+    }
+    return true;
+}
+
+unsigned int NameTableImpl::hashString(const string &id) const {
     return std::hash<string>() (id) % hashSize;
 }
 
@@ -54,36 +89,73 @@ void NameTableImpl::reHash() {
 
     auto *newHashTable = new vector<vector<Data*>*>;
     for (int i = 0; i < hashSize; i++) {
-        (*newHashTable)[i] = nullptr;
+        newHashTable->emplace_back(nullptr);
     }
 
     for (auto i : *hashTable) {
         if (i != nullptr) {
             for (auto j : *i) {
-
+                int hashID = (int) hashString(j->ID);
+                if((*newHashTable)[hashID] != nullptr) {
+                    (*newHashTable)[hashID]->emplace_back(j);
+                } else {
+                    (*hashTable)[hashID] = new vector<Data*>;
+                    (*hashTable)[hashID]->emplace_back(j);
+                }
             }
+            delete i;
         }
     }
+    delete hashTable;
+    hashTable = newHashTable;
 }
 
 void NameTableImpl::enterScope()
 {
-
+    scope++;
 }
 
 bool NameTableImpl::exitScope()
 {
-
+    if(scope <= 0)
+        return false;
+    //Get rid of every variable with scope_current
+    for (auto i : *hashTable)
+        if (i != nullptr) {
+            for(int j = 0; j < i->size(); j++) {
+                if((*i)[j]->scopeID == scope) {
+                    auto toDel = (*i)[j];
+                    (*i).erase(i->begin() + j);
+                    delete toDel;
+                }
+            }
+            if(i->empty()) {
+                delete i;
+                i = nullptr;
+            }
+        }
+    scope--;
+    return true;
 }
 
 bool NameTableImpl::declare(const string& id, int lineNum)
 {
-
+    return addToHash(id, lineNum, (int) scope);
 }
 
 int NameTableImpl::find(const string& id) const
 {
-
+    int found = -1;
+    int hashID = (int) hashString(id);
+    auto i = (*hashTable)[hashID];
+    if (i == nullptr)
+        return found;
+    for(int j = (int) i->size() - 1; j >= 0; j--) {
+        if(i->at(j)->ID == id) {
+            found = i->at(j)->line;
+        }
+    }
+    return found;
 }
 
 //*********** NameTable functions **************
