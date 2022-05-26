@@ -48,8 +48,9 @@ NameTableImpl::NameTableImpl() : hashSize(100), items(0), scope(0)  {
 
 NameTableImpl::~NameTableImpl() {
     for (auto i : *hashTable) {
-        for (auto j : *i)
-            delete j;
+        if (i != nullptr)
+            for (auto j : *i)
+                delete j;
         delete i;
     }
     delete hashTable;
