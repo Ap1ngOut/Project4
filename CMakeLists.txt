@@ -8,4 +8,5 @@ include_directories(.)
 add_executable(Project4
         NameTable.h
         NameTable.cpp
-        testNameTable.cpp)
+        testNameTable.cpp
+        )

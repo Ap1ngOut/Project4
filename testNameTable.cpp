@@ -15,7 +15,7 @@
 #include <cstdlib>
 using namespace std;
 
-const char* COMMAND_FILE_NAME = "commands.txt";
+const char* COMMAND_FILE_NAME = R"(C:\Users\aniru\Desktop\Files\Junior Year\Spring Quarter\CS 32\Project4\commands.txt)";
 
 class SlowNameTable
 {
