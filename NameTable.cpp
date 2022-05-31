@@ -55,6 +55,8 @@ bool NameTableImpl::addToHash(const string& id, int line, int scopeid) {
         for (const auto& i : *((*hashTable)[hashID])) {
             if(i.ID == id && i.scopeID == scopeid)
                 return false;
+            if(i.scopeID < scope)
+                break;
         }
         (*hashTable)[hashID]->emplace_front(Data(id, line, scopeid));
     } else {
@@ -113,7 +115,7 @@ int NameTableImpl::find(const string& id) const
     if (i == nullptr || (*i).empty())
         return found;
     for(const auto& j : (*(*hashTable)[hashID])) {
-        if (j.ID == id && j.scopeID <= scope) {
+        if (j.ID == id) {
             return j.line;
         }
     }
