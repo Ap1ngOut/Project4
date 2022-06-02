@@ -21,8 +21,8 @@ private:
     };
 
     int hashSize, scope;
-    vector<list<Data>*> *hashTable;
-    stack<string> *scopeNames;
+    vector<list<Data>> hashTable;
+    stack<string> scopeNames;
 public:
     NameTableImpl();
     ~NameTableImpl();
@@ -35,33 +35,27 @@ public:
 };
 
 NameTableImpl::NameTableImpl() : hashSize(19997), scope(0)  {
-    hashTable = new vector<list<Data>*>;
-    scopeNames = new stack<string>;
     for (int i = 0; i < hashSize; i++)
-        hashTable->emplace_back(nullptr);
+        hashTable.emplace_back(list<Data>());
 }
 
 NameTableImpl::~NameTableImpl() {
-    for (auto i : *hashTable)
-        delete i;
-    delete scopeNames;
-    delete hashTable;
+
 }
 
 bool NameTableImpl::addToHash(const string& id, int line, int scopeid) {
     int hashID = (int) hashString(id);
-    if((*hashTable)[hashID] != nullptr) {
+    if(!hashTable[hashID].empty()) {
         //Check if identical variable has been created in this scope
-        for (const auto& i : *((*hashTable)[hashID])) {
+        for (const auto& i : hashTable[hashID]) {
             if(i.ID == id && i.scopeID == scopeid)
                 return false;
             if(i.scopeID < scope)
                 break;
         }
-        (*hashTable)[hashID]->emplace_front(Data(id, line, scopeid));
+        hashTable[hashID].emplace_front(Data(id, line, scopeid));
     } else {
-        (*hashTable)[hashID] = new list<Data>;
-        (*hashTable)[hashID]->emplace_front(Data(id, line, scopeid));
+        hashTable[hashID].emplace_front(Data(id, line, scopeid));
     }
     return true;
 }
@@ -73,7 +67,7 @@ int NameTableImpl::hashString(const string &id) const {
 void NameTableImpl::enterScope()
 {
     scope++;
-    scopeNames->push("");
+    scopeNames.push("");
 }
 
 bool NameTableImpl::exitScope()
@@ -82,18 +76,18 @@ bool NameTableImpl::exitScope()
         return false;
     //Get rid of every variable with scope_current using the scopeNames stack
     int hashID;
-    string current = scopeNames->top();
-    scopeNames->pop();
-    while(!scopeNames->empty() && !current.empty()) {
+    string current = scopeNames.top();
+    scopeNames.pop();
+    while(!scopeNames.empty() && !current.empty()) {
         hashID = hashString(current);
-        for(auto j = (*hashTable)[hashID]->begin(); j != (*hashTable)[hashID]->end(); ++j) {
+        for(auto j = hashTable[hashID].begin(); j != hashTable[hashID].end(); ++j) {
             if(j->ID == current && j->scopeID == scope) {
-                (*hashTable)[hashID]->erase(j);
+                hashTable[hashID].erase(j);
                 break;
             }
         }
-        current = scopeNames->top();
-        scopeNames->pop();
+        current = scopeNames.top();
+        scopeNames.pop();
     }
     scope--;
     return true;
@@ -103,7 +97,7 @@ bool NameTableImpl::declare(const string& id, int lineNum)
 {
     if (id.empty())
         return false;
-    scopeNames->push(id);
+    scopeNames.push(id);
     return addToHash(id, lineNum, scope);
 }
 
@@ -111,10 +105,10 @@ int NameTableImpl::find(const string& id) const
 {
     int found = -1;
     int hashID = (int) hashString(id);
-    auto i = (*hashTable)[hashID];
-    if (i == nullptr || (*i).empty())
+    auto i = hashTable[hashID];
+    if (i.empty())
         return found;
-    for(const auto& j : (*(*hashTable)[hashID])) {
+    for(const auto& j : hashTable[hashID]) {
         if (j.ID == id) {
             return j.line;
         }
